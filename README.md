@@ -1,2 +1,3 @@
 # arduino-hc12
-A Arduino library for the HC-12 433MHz packet radio module.
+A Arduino (Arduino IDE & PlatformIO) library for the HC-12 433MHz packet radio module.
+
