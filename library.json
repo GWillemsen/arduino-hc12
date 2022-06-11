@@ -1,0 +1,14 @@
+{
+    "name": "HC-12",
+    "version": "0.0.1",
+    "description": "Simple Arduino helper library to use and control the HC-12 433MHz radio module.",
+    "keywords": [ "hc-12", "hc12", "433mhz" ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/GWillemsen/arduino-hc12"
+    },
+    "license": "MIT",
+    "frameworks": "arduino",
+    "platforms": "*",
+    "headers": ["HC12.h"]
+}
