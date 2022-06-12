@@ -3,7 +3,8 @@
  * @author Giel Willemsen
  * @brief Wrapper around the HC12 433mhz packet radio.
  * @version 0.1 2022-06-11 Initial version that can change the settings and acts as a Stream. And has helper function to find the currently used baudrate.
- * @date 2022-06-11
+ * @version 0.2 2022-06-12 Renamed PowerMode to OperationalMode and SendPower to TransmitPower.
+ * @date 2022-06-12
  *
  * @copyright Copyright (c) 2022
  *
@@ -31,7 +32,7 @@ public:
      * @brief The different FU power modes the module can be in.
      * 
      */
-    enum class PowerMode
+    enum class OperationalMode
     {
         FU1 = 1,
         FU2 = 2,
@@ -43,7 +44,7 @@ public:
      * @brief The different transmit powers the module has. Both mapped in milli Watt and in dBm.
      * 
      */
-    enum class SendPower
+    enum class TransmitPower
     {
         mW_0_8 = 1,
         mW_1_6 = 2,
@@ -110,14 +111,14 @@ private:
     unsigned int newBaudrate;
     unsigned int baudrate;
     bool baudChanged;
-    PowerMode newPowerMode;
-    PowerMode powerMode;
+    OperationalMode newPowerMode;
+    OperationalMode powerMode;
     bool powerModeChanged;
     int newChannel;
     int channel;
     bool channelChanged;
-    SendPower newSendPower;
-    SendPower sendPower;
+    TransmitPower newSendPower;
+    TransmitPower sendPower;
     bool sendPowerChanged;
 
 public:
@@ -134,7 +135,7 @@ public:
      * @param channel The default channel for the module.
      * @param power The default transmit power of the module.
      */
-    HC12(Stream &serial, unsigned int setPin, Baudrates baud = Baudrates::BPS_9600, PowerMode mode = PowerMode::FU2, unsigned int channel = 1, SendPower power = SendPower::mW_100_0);
+    HC12(Stream &serial, unsigned int setPin, Baudrates baud = Baudrates::BPS_9600, OperationalMode mode = OperationalMode::FU2, unsigned int channel = 1, TransmitPower power = TransmitPower::mW_100_0);
 
     /**
      * @brief Setup and try to contact the HC12 module.
@@ -156,7 +157,7 @@ public:
      * 
      * @param mode The new operation mode to set then.
      */
-    void PreparePowerMode(PowerMode mode);
+    void PrepareOperationalMode(OperationalMode mode);
     
     /**
      * @brief Configure the channel to be set on the next UpdateParams call.
@@ -170,7 +171,7 @@ public:
      * 
      * @param power The new transmit power to set then.
      */
-    void PrepareSendPower(SendPower power);
+    void PrepareTransmitPower(TransmitPower power);
 
     /**
      * @brief Update the module with new parameter settings and retrieve the ones that aren't updated.
@@ -190,9 +191,9 @@ public:
     /**
      * @brief Retrieve the currently set operation mode.
      * 
-     * @return PowerMode The operational mode that the module currently is in.
+     * @return OperationalMode The operational mode that the module currently is in.
      */
-    PowerMode GetPowerMode();
+    OperationalMode GetOperationalMode();
 
     /**
      * @brief Get the channel that the module is now working on.
@@ -204,9 +205,9 @@ public:
     /**
      * @brief Get the transmit power the module is configured to use.
      * 
-     * @return SendPower The transmit power the module is using.
+     * @return TransmitPower The transmit power the module is using.
      */
-    SendPower GetSendPower();
+    TransmitPower GetTransmitPower();
 
     /**
      * @brief Put the module into sleep until the next time the module enters the command mode (using like `UpdateParams()`).
@@ -280,18 +281,18 @@ public:
     }
 
     /**
-     * @brief Checks the given mode if it is a valid PowerMode.
+     * @brief Checks the given mode if it is a valid OperationalMode.
      * 
      * @param mode The mode to check.
-     * @return true If the mode is a valid PowerMode.
+     * @return true If the mode is a valid OperationalMode.
      * @return false If the mode is not a valid mode.
      */
-    static constexpr bool IsPowerMode(PowerMode mode)
+    static constexpr bool IsOperationalMode(OperationalMode mode)
     {
-        return (mode == PowerMode::FU1 ||
-                mode == PowerMode::FU2 ||
-                mode == PowerMode::FU3 ||
-                mode == PowerMode::FU4);
+        return (mode == OperationalMode::FU1 ||
+                mode == OperationalMode::FU2 ||
+                mode == OperationalMode::FU3 ||
+                mode == OperationalMode::FU4);
     }
 
     /**
@@ -301,17 +302,17 @@ public:
      * @return true If the power is a valid transmit power.
      * @return false If the power is not a valid power.
      */
-    static constexpr bool IsSendPower(SendPower power)
+    static constexpr bool IsTransmitPower(TransmitPower power)
     {
         return (
-            power == SendPower::mW_0_8 ||
-            power == SendPower::mW_1_6 ||
-            power == SendPower::mW_3_2 ||
-            power == SendPower::mW_6_3 ||
-            power == SendPower::mW_12_0 ||
-            power == SendPower::mW_25_0 ||
-            power == SendPower::mW_50_0 ||
-            power == SendPower::mW_100_0);
+            power == TransmitPower::mW_0_8 ||
+            power == TransmitPower::mW_1_6 ||
+            power == TransmitPower::mW_3_2 ||
+            power == TransmitPower::mW_6_3 ||
+            power == TransmitPower::mW_12_0 ||
+            power == TransmitPower::mW_25_0 ||
+            power == TransmitPower::mW_50_0 ||
+            power == TransmitPower::mW_100_0);
     }
 
     /**
@@ -338,7 +339,7 @@ private:
     static void SendCommand(Stream &serial, const String &command);
     static bool SendCommandAndGetOK(Stream &serial, const String &command);
     static String SendCommandAndGetResult(Stream &serial, const String &command);
-    static bool DbmToSendPower(int dbm, SendPower &power);
+    static bool DbmToTransmitPower(int dbm, TransmitPower &power);
 
     void SendCommand(const String &command)
     {
@@ -357,12 +358,12 @@ private:
 
     bool UpdateBaudrate();
     bool RequestBaudrate();
-    bool UpdatePowerMode();
-    bool RequestPowerMode();
+    bool UpdateOperationalMode();
+    bool RequestOperationalMode();
     bool UpdateChannel();
     bool RequestChannel();
-    bool UpdateSendPower();
-    bool RequestSendPower();
+    bool UpdateTransmitPower();
+    bool RequestTransmitPower();
 };
 
 #endif // INCLUDE_ARDUINO_HC12_H

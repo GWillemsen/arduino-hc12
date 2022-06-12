@@ -3,7 +3,8 @@
  * @author Giel Willemsen
  * @brief Implementation of the wrapper around the HC12 433mhz packet radio.
  * @version 0.1 2022-06-11 Initial implementation with support for changing baud, FU mode, transmission power and channel.
- * @date 2022-06-11
+ * @version 0.2 2022-06-12 Renamed PowerMode to OperationalMode and SendPower to TransmitPower.
+ * @date 2022-06-12
  *
  * @copyright Copyright (c) 2022
  *
@@ -20,7 +21,7 @@
 #define LOG(x)
 #endif
 
-HC12::HC12(Stream &serial, unsigned int setPin, Baudrates baud, PowerMode mode, unsigned int channel, SendPower power) : serial(serial), setPin(setPin),
+HC12::HC12(Stream &serial, unsigned int setPin, Baudrates baud, OperationalMode mode, unsigned int channel, TransmitPower power) : serial(serial), setPin(setPin),
                                                                                                                          newBaudrate((int)baud),
                                                                                                                          baudChanged(false),
                                                                                                                          newPowerMode(mode),
@@ -46,7 +47,7 @@ void HC12::PrepareBaudrate(HC12::Baudrates baudrate)
     this->newBaudrate = (int)baudrate;
 }
 
-void HC12::PreparePowerMode(HC12::PowerMode mode)
+void HC12::PrepareOperationalMode(HC12::OperationalMode mode)
 {
     this->powerModeChanged = mode != this->powerMode;
     this->newPowerMode = mode;
@@ -58,7 +59,7 @@ void HC12::PrepareChannel(int channel)
     this->newChannel = channel;
 }
 
-void HC12::PrepareSendPower(HC12::SendPower power)
+void HC12::PrepareTransmitPower(HC12::TransmitPower power)
 {
     this->sendPowerChanged = power != this->sendPower;
     this->newSendPower = power;
@@ -84,33 +85,33 @@ bool HC12::UpdateParams()
         LOG("Channel update failure 2.");
         success = false;
     }
-    if (this->sendPowerChanged && !this->UpdateSendPower())
+    if (this->sendPowerChanged && !this->UpdateTransmitPower())
     {
-        LOG("Send update failure 1.");
+        LOG("Transmit power update failure 1.");
         success = false;
     }
-    if (!this->sendPowerChanged && !this->RequestSendPower())
+    if (!this->sendPowerChanged && !this->RequestTransmitPower())
     {
-        LOG("Request send update failure 2.");
+        LOG("Request transmit power update failure 2.");
         success = false;
     }
 
     // Update this one after updating the baud rate because not all modes support all baudrates and setting a mode
     // will forcefully change the baudrate to a supported one.
-    if (this->powerModeChanged && !this->UpdatePowerMode())
+    if (this->powerModeChanged && !this->UpdateOperationalMode())
     {
-        LOG("Power update failure 1.");
+        LOG("Operational mode update failure 1.");
         success = false;
     }
-    if (!this->powerModeChanged && !this->RequestPowerMode())
+    if (!this->powerModeChanged && !this->RequestOperationalMode())
     {
-        LOG("Power update failure 2.");
+        LOG("Operational mode update failure 2.");
         success = false;
     }
 
     if (!this->baudChanged && !this->RequestBaudrate())
     {
-        LOG("Baud update failure 2.");
+        LOG("Baudrate update failure 2.");
         success = false;
     }
     return success;
@@ -121,7 +122,7 @@ unsigned int HC12::GetBaudrate()
     return this->baudrate;
 }
 
-HC12::PowerMode HC12::GetPowerMode()
+HC12::OperationalMode HC12::GetOperationalMode()
 {
     return this->powerMode;
 }
@@ -131,7 +132,7 @@ unsigned int HC12::GetChannel()
     return this->channel;
 }
 
-HC12::SendPower HC12::GetSendPower()
+HC12::TransmitPower HC12::GetTransmitPower()
 {
     return this->sendPower;
 }
@@ -151,8 +152,8 @@ bool HC12::Reset()
     {
         this->baudrate = 9600;
         this->channel = 1;
-        this->sendPower = SendPower::mW_100_0;
-        this->powerMode = PowerMode::FU3;
+        this->sendPower = TransmitPower::mW_100_0;
+        this->powerMode = OperationalMode::FU3;
         LOG("Reset was successfull.");
     }
     return success;
@@ -247,7 +248,7 @@ bool HC12::RequestBaudrate()
     return success;
 }
 
-bool HC12::UpdatePowerMode()
+bool HC12::UpdateOperationalMode()
 {
     const String kPowerModeString = String((int)this->newPowerMode);
     String result = this->SendCommandAndGetResult("AT+FU" + kPowerModeString);
@@ -257,8 +258,8 @@ bool HC12::UpdatePowerMode()
         return false;
     }
     result.remove(0, 5);
-    PowerMode power = (PowerMode)result.substring(0, 1).toInt();
-    bool power_success = IsPowerMode(power);
+    OperationalMode power = (OperationalMode)result.substring(0, 1).toInt();
+    bool power_success = IsOperationalMode(power);
     if (power_success)
     {
         this->powerMode = power;
@@ -271,7 +272,7 @@ bool HC12::UpdatePowerMode()
     return power_success;
 }
 
-bool HC12::RequestPowerMode()
+bool HC12::RequestOperationalMode()
 {
     String result = this->SendCommandAndGetResult("AT+RF");
     if (result.startsWith("OK+FU") == false)
@@ -280,8 +281,8 @@ bool HC12::RequestPowerMode()
         return false;
     }
     result.remove(0, 5);
-    PowerMode power = (PowerMode)result.substring(0, 1).toInt();
-    bool power_success = IsPowerMode(power);
+    OperationalMode power = (OperationalMode)result.substring(0, 1).toInt();
+    bool power_success = IsOperationalMode(power);
     if (power_success)
     {
         this->powerMode = power;
@@ -349,7 +350,7 @@ bool HC12::RequestChannel()
     return success;
 }
 
-bool HC12::UpdateSendPower()
+bool HC12::UpdateTransmitPower()
 {
     const String kChannelString = String((int)this->newSendPower);
     String result = this->SendCommandAndGetResult("AT+P" + kChannelString);
@@ -366,7 +367,7 @@ bool HC12::UpdateSendPower()
     return success;
 }
 
-bool HC12::RequestSendPower()
+bool HC12::RequestTransmitPower()
 {
     String result = this->SendCommandAndGetResult("AT+RP");
     if (result.startsWith("OK+RP:") == false)
@@ -381,8 +382,8 @@ bool HC12::RequestSendPower()
     }
     result.remove(0, 6);
     result.remove(result.length() - 3, 3);
-    SendPower power = SendPower::mW_0_8;
-    bool success = DbmToSendPower(result.toInt(), power);
+    TransmitPower power = TransmitPower::mW_0_8;
+    bool success = DbmToTransmitPower(result.toInt(), power);
     if (success)
     {
         this->sendPower = power;
@@ -390,39 +391,39 @@ bool HC12::RequestSendPower()
     }
     else
     {
-        LOG("Received dBm value wasn't a valid SendPower value.");
+        LOG("Received dBm value wasn't a valid TransmitPower value.");
     }
     return success;
 }
 
-bool HC12::DbmToSendPower(int dbm, SendPower &power)
+bool HC12::DbmToTransmitPower(int dbm, TransmitPower &power)
 {
     bool success = true;
     switch (dbm)
     {
     case -1:
-        power = SendPower::mW_0_8;
+        power = TransmitPower::mW_0_8;
         break;
     case 2:
-        power = SendPower::mW_1_6;
+        power = TransmitPower::mW_1_6;
         break;
     case 5:
-        power = SendPower::mW_3_2;
+        power = TransmitPower::mW_3_2;
         break;
     case 8:
-        power = SendPower::mW_6_3;
+        power = TransmitPower::mW_6_3;
         break;
     case 11:
-        power = SendPower::mW_12_0;
+        power = TransmitPower::mW_12_0;
         break;
     case 14:
-        power = SendPower::mW_25_0;
+        power = TransmitPower::mW_25_0;
         break;
     case 17:
-        power = SendPower::mW_50_0;
+        power = TransmitPower::mW_50_0;
         break;
     case 20:
-        power = SendPower::mW_100_0;
+        power = TransmitPower::mW_100_0;
         break;
     default:
         success = false;
