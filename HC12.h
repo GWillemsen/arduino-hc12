@@ -14,11 +14,23 @@
 
 #include "Arduino.h"
 
+/**
+ * @brief Class that helps with communicating with the HC12 module.
+ * 
+ */
 class HC12 : public Stream
 {
 public:
+    /**
+     * @brief Maximum time that is allowed for a AT command to return a response.
+     * 
+     */
     static constexpr unsigned long kMaxCommandResponseTime = 150UL;
 
+    /**
+     * @brief The different FU power modes the module can be in.
+     * 
+     */
     enum class PowerMode
     {
         FU1 = 1,
@@ -27,6 +39,10 @@ public:
         FU4 = 4
     };
 
+    /**
+     * @brief The different transmit powers the module has. Both mapped in milli Watt and in dBm.
+     * 
+     */
     enum class SendPower
     {
         mW_0_8 = 1,
@@ -37,8 +53,20 @@ public:
         mW_25_0 = 6,
         mW_50_0 = 7,
         mW_100_0 = 8,
+        dBm_NEG_1 = mW_0_8,
+        dBm_2 = mW_1_6,
+        dBm_5 = mW_3_2,
+        dBm_8 = mW_6_3,
+        dBm_11 = mW_12_0,
+        dBm_14 = mW_25_0,
+        dBm_17 = mW_50_0,
+        dBm_20 = mW_100_0
     };
 
+    /**
+     * @brief The supported baudrates by the HC-12 module.
+     * 
+     */
     enum class Baudrates
     {
         BPS_1200 = 1200,
@@ -52,6 +80,10 @@ public:
     };
 
 private:
+    /**
+     * @brief Small helper class that on construction enters command mode and on destruction leaves command mode.
+     * 
+     */
     class CommandMode
     {
     private:
@@ -89,22 +121,107 @@ private:
     bool sendPowerChanged;
 
 public:
+    /**
+     * @brief Construct a new HC12 module connection.
+     * @details All the values here provided are the 'default' values. 
+     * They will be overwritten the moment a 'UpdateParams' call is done
+     * so the 'GetXXXX' calls return their true value.
+     * 
+     * @param serial The stream to use for communication with the module.
+     * @param setPin The pin that is used to set the module in command mode (also know as SET or KEY pin).
+     * @param baud The default baudrate that the module is currently set at.
+     * @param mode The default operational mode the module is in.
+     * @param channel The default channel for the module.
+     * @param power The default transmit power of the module.
+     */
     HC12(Stream &serial, unsigned int setPin, Baudrates baud = Baudrates::BPS_9600, PowerMode mode = PowerMode::FU2, unsigned int channel = 1, SendPower power = SendPower::mW_100_0);
 
+    /**
+     * @brief Setup and try to contact the HC12 module.
+     * 
+     * @return true if the module replied and is available.
+     * @return false if the module never replied or only garbage was received.
+     */
     bool begin();
 
+    /**
+     * @brief Configure the baudrate to be set on the next UpdateParams call.
+     * 
+     * @param baudrate The new baudrate to set then.
+     */
     void PrepareBaudrate(Baudrates baudrate);
+    
+    /**
+     * @brief Configure the new operation mode to be set on the next UpdateParams call.
+     * 
+     * @param mode The new operation mode to set then.
+     */
     void PreparePowerMode(PowerMode mode);
+    
+    /**
+     * @brief Configure the channel to be set on the next UpdateParams call.
+     * 
+     * @param channel The new channel to set then.
+     */
     void PrepareChannel(int channel);
+    
+    /**
+     * @brief Configure the transmit power to be set on the next UpdateParams call.
+     * 
+     * @param power The new transmit power to set then.
+     */
     void PrepareSendPower(SendPower power);
 
+    /**
+     * @brief Update the module with new parameter settings and retrieve the ones that aren't updated.
+     * 
+     * @return true if the syncronization was a success.
+     * @return false if the syncronization was a failure.
+     */
     bool UpdateParams();
 
+    /**
+     * @brief Retrieve the currently set baudrate.
+     * 
+     * @return unsigned int The baudrate that the module currently uses.
+     */
     unsigned int GetBaudrate();
+    
+    /**
+     * @brief Retrieve the currently set operation mode.
+     * 
+     * @return PowerMode The operational mode that the module currently is in.
+     */
     PowerMode GetPowerMode();
+
+    /**
+     * @brief Get the channel that the module is now working on.
+     * 
+     * @return unsigned int The channel for transmitting and receiving.
+     */
     unsigned int GetChannel();
+    
+    /**
+     * @brief Get the transmit power the module is configured to use.
+     * 
+     * @return SendPower The transmit power the module is using.
+     */
     SendPower GetSendPower();
+
+    /**
+     * @brief Put the module into sleep until the next time the module enters the command mode (using like `UpdateParams()`).
+     * 
+     * @return true if the module was successfully put into sleep mode.
+     * @return false if the module failed to go into sleep mode.
+     */
     bool Sleep();
+
+    /**
+     * @brief Resets all parameters to their default values.
+     * 
+     * @return true if all the values were successfully reset.
+     * @return false if the module and it's values failed to be reset.
+     */
     bool Reset();
 
     virtual int available() override;
@@ -112,6 +229,14 @@ public:
     virtual int peek() override;
     virtual size_t write(uint8_t data) override;
 
+    /**
+     * @brief Looks on each baudrate if the module replies to the status command.
+     * 
+     * @tparam T The serial to use (but MUST have `updateBaudRate(int baudrate)` and inherit from Stream).
+     * @param ser The serial object to use.
+     * @param cmdPin The pin that is used to set the module into command mode (also known as the SET or KEY pin)
+     * @return unsigned int The baudrate the module is found at. 0 if the module could not be found.
+     */
     template <typename T = HardwareSerial>
     static unsigned int FindBaudrateForModule(T &ser, int cmdPin)
     {
@@ -154,6 +279,13 @@ public:
         return 0;
     }
 
+    /**
+     * @brief Checks the given mode if it is a valid PowerMode.
+     * 
+     * @param mode The mode to check.
+     * @return true If the mode is a valid PowerMode.
+     * @return false If the mode is not a valid mode.
+     */
     static constexpr bool IsPowerMode(PowerMode mode)
     {
         return (mode == PowerMode::FU1 ||
@@ -162,6 +294,13 @@ public:
                 mode == PowerMode::FU4);
     }
 
+    /**
+     * @brief Checks the given mode if it is a valid value for the transmit power.
+     * 
+     * @param power The power to check.
+     * @return true If the power is a valid transmit power.
+     * @return false If the power is not a valid power.
+     */
     static constexpr bool IsSendPower(SendPower power)
     {
         return (
@@ -175,6 +314,13 @@ public:
             power == SendPower::mW_100_0);
     }
 
+    /**
+     * @brief Checks the given mode if it is a valid baudrate.
+     * 
+     * @param baud The baudrate to check.
+     * @return true If the baudrate is a valid value.
+     * @return false If the baudrate is a not a supported baudrate.
+     */
     static constexpr bool IsBaudrate(Baudrates baud)
     {
         return (
@@ -192,6 +338,7 @@ private:
     static void SendCommand(Stream &serial, const String &command);
     static bool SendCommandAndGetOK(Stream &serial, const String &command);
     static String SendCommandAndGetResult(Stream &serial, const String &command);
+    static bool DbmToSendPower(int dbm, SendPower &power);
 
     void SendCommand(const String &command)
     {
@@ -216,8 +363,6 @@ private:
     bool RequestChannel();
     bool UpdateSendPower();
     bool RequestSendPower();
-
-    bool DbmToSendPower(int dbm, SendPower &power);
 };
 
 #endif // INCLUDE_ARDUINO_HC12_H
