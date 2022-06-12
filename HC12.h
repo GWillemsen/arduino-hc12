@@ -325,6 +325,12 @@ public:
         if (SendCommandAndGetOK(ser, "AT"))
             return 19200;
 
+        // Prioritize this baudrate since this baudrate is fallback for FU3 but still supported by all other modes
+        ser.updateBaudRate(4800);
+        Serial.println(F("Looking at baud: 4800."));
+        if (SendCommandAndGetOK(ser, "AT"))
+            return 4800;
+
         // Other 'regular' baudrates.
         ser.updateBaudRate(1200);
         Serial.println(F("Looking at baud: 1200."));
@@ -334,10 +340,6 @@ public:
         Serial.println(F("Looking at baud: 2400."));
         if (SendCommandAndGetOK(ser, "AT"))
             return 2400;
-        ser.updateBaudRate(4800);
-        Serial.println(F("Looking at baud: 4800."));
-        if (SendCommandAndGetOK(ser, "AT"))
-            return 4800;
         ser.updateBaudRate(138400);
         Serial.println(F("Looking at baud: 138400."));
         if (SendCommandAndGetOK(ser, "AT"))
