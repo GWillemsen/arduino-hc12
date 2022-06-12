@@ -4,6 +4,8 @@
  * @brief Implementation of the wrapper around the HC12 433mhz packet radio.
  * @version 0.1 2022-06-11 Initial implementation with support for changing baud, FU mode, transmission power and channel.
  * @version 0.2 2022-06-12 Renamed PowerMode to OperationalMode and SendPower to TransmitPower.
+ * @version 0.3 2022-06-12 Refactor the code to keep track of changes into small helper class.
+ * @version 0.4 2022-06-12 Small bug fix where updating the FU mode doesn't always return the baudrate update. Only if it changed.
  * @date 2022-06-12
  *
  * @copyright Copyright (c) 2022
@@ -15,21 +17,21 @@
 // Middle way between everything as a flash string vs having it constantly in memory.
 // #define STR_F(str) String(F(str))
 #define STR_F(str) F(str))
-#ifndef HC12_DEBUG_MODE
-#define LOG(x) Serial.println(x)
+#ifdef HC12_DEBUG_MODE
+#define LOG(x)              \
+    Serial.print("(L");     \
+    Serial.print(__LINE__); \
+    Serial.print(") ");     \
+    Serial.println(x)
 #else
 #define LOG(x)
 #endif
 
 HC12::HC12(Stream &serial, unsigned int setPin, Baudrates baud, OperationalMode mode, unsigned int channel, TransmitPower power) : serial(serial), setPin(setPin),
-                                                                                                                         newBaudrate((int)baud),
-                                                                                                                         baudChanged(false),
-                                                                                                                         newPowerMode(mode),
-                                                                                                                         powerModeChanged(false),
-                                                                                                                         newChannel(channel),
-                                                                                                                         channelChanged(false),
-                                                                                                                         newSendPower(power),
-                                                                                                                         sendPowerChanged(false)
+                                                                                                                                   baudrate((int)baud),
+                                                                                                                                   operationalMode(OperationalMode::FU3),
+                                                                                                                                   channel(1),
+                                                                                                                                   transmitPower(TransmitPower::mW_100_0)
 {
     pinMode(setPin, OUTPUT_OPEN_DRAIN);
 }
@@ -43,54 +45,53 @@ bool HC12::begin()
 
 void HC12::PrepareBaudrate(HC12::Baudrates baudrate)
 {
-    this->baudChanged = (int)baudrate != this->baudrate;
-    this->newBaudrate = (int)baudrate;
+    if (IsBaudrate(baudrate))
+    {
+        this->baudrate.New() = (int)baudrate;
+    }
 }
 
 void HC12::PrepareOperationalMode(HC12::OperationalMode mode)
 {
-    this->powerModeChanged = mode != this->powerMode;
-    this->newPowerMode = mode;
+    this->operationalMode.New() = mode;
 }
 
 void HC12::PrepareChannel(int channel)
 {
-    this->channelChanged = channel != this->channel;
-    this->newChannel = channel;
+    this->channel.New() = channel;
 }
 
 void HC12::PrepareTransmitPower(HC12::TransmitPower power)
 {
-    this->sendPowerChanged = power != this->sendPower;
-    this->newSendPower = power;
+    this->transmitPower.New() = power;
 }
 
 bool HC12::UpdateParams()
 {
     CommandMode cmd(this->setPin);
     bool success = true;
-    if (this->baudChanged && !this->UpdateBaudrate())
+    if (this->transmitPower.HasChanged() && !this->UpdateBaudrate())
     {
         LOG("Baudrate update failure 1.");
         success = false;
     }
 
-    if (this->channelChanged && !this->UpdateChannel())
+    if (this->channel.HasChanged() && !this->UpdateChannel())
     {
         LOG("Channel update failure 1.");
         success = false;
     }
-    if (!this->channelChanged && !this->RequestChannel())
+    if (!this->channel.HasChanged() && !this->RequestChannel())
     {
         LOG("Channel update failure 2.");
         success = false;
     }
-    if (this->sendPowerChanged && !this->UpdateTransmitPower())
+    if (this->transmitPower.HasChanged() && !this->UpdateTransmitPower())
     {
         LOG("Transmit power update failure 1.");
         success = false;
     }
-    if (!this->sendPowerChanged && !this->RequestTransmitPower())
+    if (!this->transmitPower.HasChanged() && !this->RequestTransmitPower())
     {
         LOG("Request transmit power update failure 2.");
         success = false;
@@ -98,18 +99,18 @@ bool HC12::UpdateParams()
 
     // Update this one after updating the baud rate because not all modes support all baudrates and setting a mode
     // will forcefully change the baudrate to a supported one.
-    if (this->powerModeChanged && !this->UpdateOperationalMode())
+    if (this->operationalMode.HasChanged() && !this->UpdateOperationalMode())
     {
         LOG("Operational mode update failure 1.");
         success = false;
     }
-    if (!this->powerModeChanged && !this->RequestOperationalMode())
+    if (!this->operationalMode.HasChanged() && !this->RequestOperationalMode())
     {
         LOG("Operational mode update failure 2.");
         success = false;
     }
 
-    if (!this->baudChanged && !this->RequestBaudrate())
+    if (!this->baudrate.HasChanged() && !this->RequestBaudrate())
     {
         LOG("Baudrate update failure 2.");
         success = false;
@@ -119,22 +120,22 @@ bool HC12::UpdateParams()
 
 unsigned int HC12::GetBaudrate()
 {
-    return this->baudrate;
+    return this->baudrate.Current();
 }
 
 HC12::OperationalMode HC12::GetOperationalMode()
 {
-    return this->powerMode;
+    return this->operationalMode.Current();
 }
 
 unsigned int HC12::GetChannel()
 {
-    return this->channel;
+    return this->channel.Current();
 }
 
 HC12::TransmitPower HC12::GetTransmitPower()
 {
-    return this->sendPower;
+    return this->transmitPower.Current();
 }
 
 bool HC12::Sleep()
@@ -150,11 +151,11 @@ bool HC12::Reset()
     bool success = (result == "OK+DEFAULT");
     if (success)
     {
-        this->baudrate = 9600;
-        this->channel = 1;
-        this->sendPower = TransmitPower::mW_100_0;
-        this->powerMode = OperationalMode::FU3;
-        LOG("Reset was successfull.");
+        this->baudrate = Updatable<unsigned int>(9600);
+        this->channel = Updatable<int>(1);
+        this->transmitPower = Updatable<TransmitPower>(TransmitPower::mW_100_0);
+        this->operationalMode = Updatable<OperationalMode>(OperationalMode::FU3);
+        LOG("Reset was successful.");
     }
     return success;
 }
@@ -210,17 +211,16 @@ void HC12::SendCommand(Stream &serial, const String &command)
 
 bool HC12::UpdateBaudrate()
 {
-    const String kBaudrateString = String(this->newBaudrate);
+    const String kBaudrateString = String(this->baudrate.New());
     String result = this->SendCommandAndGetResult("AT+B" + kBaudrateString);
     bool success = (result == ("OK+B" + kBaudrateString));
     if (success)
     {
-        this->baudrate = this->newBaudrate;
-        this->baudChanged = false;
+        this->baudrate.MarkUpdated();
     }
     else
     {
-        LOG("Received baudrate confirmation in baudrate update wasn't a known supported value.");
+        LOG("Received baudrate confirmation in baudrate update wasn't a known supported value. Response was: " + result + ".");
     }
     return success;
 }
@@ -230,6 +230,7 @@ bool HC12::RequestBaudrate()
     String result = this->SendCommandAndGetResult("AT+RB");
     if (result.startsWith("OK+B") == false)
     {
+        LOG("Baudrate receive request didn't start with OK+B. Response was: " + result + ".");
         return false;
     }
     result.remove(0, 4);
@@ -237,12 +238,11 @@ bool HC12::RequestBaudrate()
     bool success = IsBaudrate((Baudrates)baud);
     if (success)
     {
-        this->baudrate = baud;
-        this->baudChanged = this->baudrate != this->newBaudrate;
+        this->baudrate.ForceUpdateCurrent(baud);
     }
     else
     {
-        LOG("Received baudrate wasn't a known supported value.");
+        LOG("Received baudrate wasn't a known supported value. Value was: " + String(baud) + ".");
     }
 
     return success;
@@ -250,11 +250,11 @@ bool HC12::RequestBaudrate()
 
 bool HC12::UpdateOperationalMode()
 {
-    const String kPowerModeString = String((int)this->newPowerMode);
+    const String kPowerModeString = String((int)this->operationalMode.New());
     String result = this->SendCommandAndGetResult("AT+FU" + kPowerModeString);
-    if (result.startsWith("AT+FU") == false)
+    if (result.startsWith("OK+FU") == false)
     {
-        LOG("FU update command reply didn't start with AT+FU.");
+        LOG("FU update command reply didn't start with AT+FU but was: " + result + ".");
         return false;
     }
     result.remove(0, 5);
@@ -262,12 +262,11 @@ bool HC12::UpdateOperationalMode()
     bool power_success = IsOperationalMode(power);
     if (power_success)
     {
-        this->powerMode = power;
-        this->powerModeChanged = this->powerMode != this->newPowerMode;
+        this->operationalMode.MarkUpdated();
     }
     else
     {
-        LOG("Received FU mode wasn't a supported value.");
+        LOG("Received FU mode wasn't a supported value. Value was: " + String((int)power) + ".");
     }
     return power_success;
 }
@@ -277,7 +276,7 @@ bool HC12::RequestOperationalMode()
     String result = this->SendCommandAndGetResult("AT+RF");
     if (result.startsWith("OK+FU") == false)
     {
-        LOG("FU value request reply didn't start  AT+FU.");
+        LOG("FU value request reply didn't start AT+FU but was: " + result + ".");
         return false;
     }
     result.remove(0, 5);
@@ -285,30 +284,33 @@ bool HC12::RequestOperationalMode()
     bool power_success = IsOperationalMode(power);
     if (power_success)
     {
-        this->powerMode = power;
-        this->powerModeChanged = this->powerMode != this->newPowerMode;
+        this->operationalMode.ForceUpdateCurrent(power);
     }
     else
     {
-        LOG("Received FU mode wasn't a valid mode.");
+        LOG("Received FU mode wasn't a valid mode. Value was: " + String((int)power) + ". Full response: " + result + ".");
     }
 
-    Baudrates baud = (Baudrates)result.substring(3, result.length()).toInt();
-    bool baud_success = IsBaudrate(baud);
-    if (baud_success)
+    if (result.length() > 1)
     {
-        this->baudrate = (int)baud;
-    }
-    else
-    {
-        LOG("Received baudrate in FU mode wasn't a known supported value.");
+        Baudrates baud = (Baudrates)result.substring(3, result.length()).toInt();
+        bool baud_success = IsBaudrate(baud);
+        if (baud_success)
+        {
+            this->baudrate.ForceUpdateCurrent((int)baud);
+        }
+        else
+        {
+            LOG("Received baudrate in FU mode wasn't a known supported value. Value was: " + String((int)baud) + ". Full response: " + result + ".");
+        }
+        power_success = power_success && baud_success;
     }
     return power_success;
 }
 
 bool HC12::UpdateChannel()
 {
-    String channelString = String(this->newChannel);
+    String channelString = String(this->channel.New());
     while (channelString.length() != 3)
     {
         channelString = "0" + channelString;
@@ -317,12 +319,11 @@ bool HC12::UpdateChannel()
     bool success = (result == ("OK+C" + channelString));
     if (success)
     {
-        this->channel = this->newChannel;
-        this->channelChanged = false;
+        this->channel.MarkUpdated();
     }
     else
     {
-        LOG("Received channel wasn't the same as what was send.");
+        LOG("Received channel wasn't the same as what was send. Response was: " + result + ".");
     }
     return success;
 }
@@ -332,7 +333,7 @@ bool HC12::RequestChannel()
     String result = this->SendCommandAndGetResult("AT+RC");
     if (result.startsWith("OK+RC") == false)
     {
-        LOG("Channel value request reply didn't start with AT+RC.");
+        LOG("Channel value request reply didn't start with AT+RC but was: " + result + ".");
         return false;
     }
     result.remove(0, 5);
@@ -340,29 +341,27 @@ bool HC12::RequestChannel()
     bool success = channel > 0 && channel < 127;
     if (success)
     {
-        this->channel = channel;
-        this->channelChanged = this->channel != this->newChannel;
+        this->channel.ForceUpdateCurrent(channel);
     }
     else
     {
-        LOG("Received channel wasn't between 0 and 128 (non-inclusive).");
+        LOG("Received channel wasn't between 0 and 128 (non-inclusive). Response was: " + String(channel) + ".");
     }
     return success;
 }
 
 bool HC12::UpdateTransmitPower()
 {
-    const String kChannelString = String((int)this->newSendPower);
+    const String kChannelString = String((int)this->transmitPower.New());
     String result = this->SendCommandAndGetResult("AT+P" + kChannelString);
     bool success = (result == ("OK+P" + kChannelString));
     if (success)
     {
-        this->sendPower = this->newSendPower;
-        this->sendPowerChanged = false;
+        this->transmitPower.MarkUpdated();
     }
     else
     {
-        LOG("Received channel didn't match what was requested.");
+        LOG("Received channel didn't match what was requested. Response was: " + result + ".");
     }
     return success;
 }
@@ -372,12 +371,12 @@ bool HC12::RequestTransmitPower()
     String result = this->SendCommandAndGetResult("AT+RP");
     if (result.startsWith("OK+RP:") == false)
     {
-        LOG("Transmission power value request reply didn't start with AT+RP.");
+        LOG("Transmission power value request reply didn't start with AT+RP. Response was: " + result + ".");
         return false;
     }
     if (result.endsWith("dBm") == false)
     {
-        LOG("Transmission power value request reply didn't end with dBm.");
+        LOG("Transmission power value request reply didn't end with dBm. Response was: " + result + ".");
         return false;
     }
     result.remove(0, 6);
@@ -386,12 +385,11 @@ bool HC12::RequestTransmitPower()
     bool success = DbmToTransmitPower(result.toInt(), power);
     if (success)
     {
-        this->sendPower = power;
-        this->sendPowerChanged = this->sendPower != this->newSendPower;
+        this->transmitPower.ForceUpdateCurrent(power);
     }
     else
     {
-        LOG("Received dBm value wasn't a valid TransmitPower value.");
+        LOG("Received dBm value wasn't a valid TransmitPower value. Value was: " + result + ".");
     }
     return success;
 }

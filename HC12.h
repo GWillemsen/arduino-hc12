@@ -4,6 +4,7 @@
  * @brief Wrapper around the HC12 433mhz packet radio.
  * @version 0.1 2022-06-11 Initial version that can change the settings and acts as a Stream. And has helper function to find the currently used baudrate.
  * @version 0.2 2022-06-12 Renamed PowerMode to OperationalMode and SendPower to TransmitPower.
+ * @version 0.3 2022-06-12 Refactor the code to keep track of changes into small helper class.
  * @date 2022-06-12
  *
  * @copyright Copyright (c) 2022
@@ -104,22 +105,90 @@ private:
         }
     };
 
+    /**
+     * @brief Util class that can help with properties that lazy updatable.
+     * 
+     * @tparam T The type of the property to track.
+     */
+    template<typename T>
+    class Updatable
+    {
+    private:
+        T newValue;
+        T currentValue;
+    public:
+        constexpr Updatable(T current) : currentValue(current), newValue(current)
+        {}
+
+        /**
+         * @brief Check if the new value is different from the current value.
+         * 
+         * @return true If the new value is different.
+         * @return false If the values are the same.
+         */
+        bool HasChanged() const
+        {
+            return newValue != currentValue;
+        }
+
+        /**
+         * @brief Return the current value.
+         * 
+         * @return T The current value.
+         */
+        T Current() const
+        {
+            return currentValue;
+        }
+
+        /**
+         * @brief Return what is going to be the new value.
+         * 
+         * @return T The new value.
+         */
+        T& New()
+        {
+            return currentValue;
+        }
+
+        /**
+         * @brief Return what is going to be the new value.
+         * 
+         * @return T The new value.
+         */
+        const T& New() const
+        {
+            return currentValue;
+        }
+
+        /**
+         * @brief Mark the new value is the current up to date value.
+         * 
+         */
+        void MarkUpdated()
+        {
+            currentValue = newValue;
+        }
+
+        /**
+         * @brief Set the current value without changing the potential new value.
+         * 
+         * @param current The new current value.
+         */
+        void ForceUpdateCurrent(T current)
+        {
+            this->currentValue = current;
+        }
+    };
+
 private:
     Stream &serial;
     int setPin;
 
-    unsigned int newBaudrate;
-    unsigned int baudrate;
-    bool baudChanged;
-    OperationalMode newPowerMode;
-    OperationalMode powerMode;
-    bool powerModeChanged;
-    int newChannel;
-    int channel;
-    bool channelChanged;
-    TransmitPower newSendPower;
-    TransmitPower sendPower;
-    bool sendPowerChanged;
+    Updatable<unsigned int> baudrate;
+    Updatable<OperationalMode> operationalMode;
+    Updatable<int> channel;
+    Updatable<TransmitPower> transmitPower;
 
 public:
     /**
