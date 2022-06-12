@@ -1,9 +1,9 @@
 # arduino-hc12
 A simple Arduino (Arduino IDE & PlatformIO) library for the HC-12 433MHz packet radio module.
-It can be used as a normal stream but also has possiblities to enter the command mode and change the parameters of the radio.
+It can be used as a normal stream but also has possibilities to enter the command mode and change the parameters of the radio.
 
 # Basic usage
-In the most basic version you begin the serial port you want to use and you construct a HC12 with the serial as a refence.
+In the most basic version you begin the serial port you want to use and you construct a HC12 with the serial as a reference.
 And you are good to go then.
 
 ```cpp
@@ -59,12 +59,11 @@ void loop()
 }
 ```
 
-
 # Change the transmission power
 Besides being able to just data the library also provides options to change the parameters of the radio.
 It can change the transmission power, operational mode, communication baudrate and the radio channel.
 You first call 'PrepareXXXX'.
-And when you call 'UpdateParams' it will syncronize the parameters.
+And when you call 'UpdateParams' it will synchronize the parameters.
 It will update the modem with the values from PrepareXXX.
 And if a value was changed by something else (or because it has never synced before) it will also retrieve those values.
 
@@ -89,7 +88,7 @@ void setup()
 	hc12.PrepareSendPower(HC12::SendPower::mW_6_3);
     if (hc12.UpdateParams() == false)
     {
-        Serial.println("Failed to syncronise settings with the HC12 module. Aborting program.");
+        Serial.println("Failed to synchronize settings with the HC12 module. Aborting program.");
         while(1){}
     }
     Serial.println("HC-12 transmission power changed to 6,3 mW");
