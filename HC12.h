@@ -5,7 +5,8 @@
  * @version 0.1 2022-06-11 Initial version that can change the settings and acts as a Stream. And has helper function to find the currently used baudrate.
  * @version 0.2 2022-06-12 Renamed PowerMode to OperationalMode and SendPower to TransmitPower.
  * @version 0.3 2022-06-12 Refactor the code to keep track of changes into small helper class.
- * @date 2022-06-12
+ * @version 0.4 2022-06-13 Added size_t write(*buffer, size) override to support writing whole buffers at once.
+ * @date 2022-06-13
  *
  * @copyright Copyright (c) 2022
  *
@@ -298,6 +299,7 @@ public:
     virtual int read() override;
     virtual int peek() override;
     virtual size_t write(uint8_t data) override;
+    virtual size_t write(const uint8_t *buffer, size_t size) override;
 
     /**
      * @brief Looks on each baudrate if the module replies to the status command.
