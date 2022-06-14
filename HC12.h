@@ -6,7 +6,8 @@
  * @version 0.2 2022-06-12 Renamed PowerMode to OperationalMode and SendPower to TransmitPower.
  * @version 0.3 2022-06-12 Refactor the code to keep track of changes into small helper class.
  * @version 0.4 2022-06-13 Added size_t write(*buffer, size) override to support writing whole buffers at once.
- * @date 2022-06-13
+ * @version 0.5 2022-06-14 Added flush override.
+ * @date 2022-06-14
  *
  * @copyright Copyright (c) 2022
  *
@@ -118,7 +119,7 @@ private:
         T newValue;
         T currentValue;
     public:
-        constexpr Updatable(T current) : currentValue(current), newValue(current)
+        constexpr Updatable(T current) : newValue(current), currentValue(current)
         {}
 
         /**
@@ -300,6 +301,7 @@ public:
     virtual int peek() override;
     virtual size_t write(uint8_t data) override;
     virtual size_t write(const uint8_t *buffer, size_t size) override;
+    virtual void flush() override;
 
     /**
      * @brief Looks on each baudrate if the module replies to the status command.

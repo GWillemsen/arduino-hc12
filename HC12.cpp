@@ -7,7 +7,8 @@
  * @version 0.3 2022-06-12 Refactor the code to keep track of changes into small helper class.
  * @version 0.4 2022-06-12 Small bug fix where updating the FU mode doesn't always return the baudrate update. Only if it changed.
  * @version 0.5 2022-06-13 Added size_t write(*buffer, size) override to support writing whole buffers at once.
- * @date 2022-06-13
+ * @version 0.5 2022-06-14 Added flush override.
+ * @date 2022-06-14
  *
  * @copyright Copyright (c) 2022
  *
@@ -184,6 +185,11 @@ size_t HC12::write(uint8_t data)
 size_t HC12::write(const uint8_t *buffer, size_t size)
 {
     return this->serial.write(buffer, size);
+}
+
+void HC12::flush()
+{
+    this->serial.flush();
 }
 
 bool HC12::SendCommandAndGetOK(Stream &serial, const String &command)
